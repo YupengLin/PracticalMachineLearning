@@ -1,0 +1,72 @@
+---
+title: "Practical Machine Learning To Analyize the Lifting Exercise"
+author: "Yupeng Lin"
+date: "06/17/2015"
+output: html_document
+---
+###Summary
+
+This is the assignment to analyize how well the subject perform the lifting exercise. The from classe variable, we can see 5 factors indicating how well the exercise is. Therefore, we can conclude that it is a class
+
+
+###Loading data and data cleaning
+```{r, eval=FALSE}
+library(caret)
+pml_train <- read.csv("pml-training.csv")
+pml_test <- read.csv("pml-testing.csv")
+```
+
+From the dataset, we can see that there are a lot of empty cell and NA values. From my point of view, we can delete the column with NA and empty cells. Empty or NA cells are so vast and takes up too many place in a single column; therefore if we use mean or k-nearest neighbors to impute the empty cell, it is meaningless.
+
+```{r, eval=FALSE}
+pml_train <- apply(pml_train, 2, function(x) gsub("^$|^ $",NA,x))
+pml_train <- pml_train[, colSums(is.na(pml_train)) == 0 ]
+```
+
+I use the regular expression to eliminate the empty cell and then the column containing NA cell.
+
+
+```{r, eval=FALSE}
+pml_train <- pml_train[,-c(1:7)]
+pml_train <- as.data.frame(pml_train)
+for( i in 1:52) {pml_train[,i] <- as.numeric(pml_train[,i])}
+```
+
+Then we can see that the first seven columns are the name of subjects and time stamp, which are irrelevant with prediction. So, we can also delete them, and convert back to dataframe.
+
+###Machine Learning Process and Model Selection
+
+```{r, eval=FALSE}
+inTrain <- createDataPartition(y=pml_train$classe, p=0.5, list=FALSE)
+training <- pml_train[inTrain,]
+testing <- pml_train[-inTrain,]
+```
+
+As usual, we separate the data frame with training and testing set. When it comes to classification algorithm, I came up with 3 method: tree prediction, glm, and random forest.
+
+First I use the tree prediction, which is most straight-forward. The confusion matrix turns out to be a very poor behavior. The accuracy of tree prediction "rpart" is 44.6%. The glm method also turns out to be poor behavior. The accuracy is also less than 50%.
+
+The final model is random forest. Initially, I tried to use PCA to accelerate the computing time.
+```{r, eval=FALSE}
+preProc <- preProcess(training[,-53], method="pca")
+trainPC <- predict(preProc, training[,-53])
+modFit <- train(train$classe ~ ., method="rf", data=trainPC)
+```
+
+The proprocessing of PCA and random forest indeed improve the outcome of prediction, but the accuracy is around 70%. But luckily, the company I am working at usually equip us the very power working station.
+
+```{r, eval=FALSE}
+modfit <- train(classe ~ ., data = train_small, method = "rf", prox = TRUE, 
+                trControl = trainControl(method = "cv", number = 4))
+predictions <- predict(modFit, newdata=testing)
+confusionMatrix(predictions,testing$classe)
+```
+
+It takes very long time to compute, but the accuracy is 97%.
+
+###Conclusion
+
+The random forest is indeed a very powerful method for classification while the drawback is the time-consuming issue.
+
+###Some idea of Machine Learning 
+ Machine learning is still like a black-box for me. What I know is that I can use some models to fit then and see the outcome. But the inner mechanism and how to efficiently use them confused me a lot. For the better understanding of machine learning, I took the machine learning online course in Coursera. Good luck for those who see my R markdown.
